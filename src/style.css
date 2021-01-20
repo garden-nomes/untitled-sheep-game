@@ -1,0 +1,57 @@
+body {
+  margin: 0;
+  overflow: hidden;
+
+  font-family: Calibri, "Trebuchet MS", sans-serif;
+  font-size: 16px;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+#fps {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+#palette {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 1rem;
+}
+
+ul.palette-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.palette-list_item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.palette-list_item_label {
+  text-align: right;
+  flex: 1;
+  margin-right: 0.5rem;
+  color: white;
+  text-shadow: 1px 1px black;
+}
+
+.palette-list_item_swatch {
+  width: 2rem;
+  height: 2rem;
+}

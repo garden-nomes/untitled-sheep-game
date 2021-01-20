@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "isolatedModules": true,
+        "types": ["vite/client", "node"],
+        "moduleResolution": "Node",
+        "resolveJsonModule": true,
+        "target": "ES6"
+    },
+}
