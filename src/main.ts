@@ -241,7 +241,7 @@ class Sheep {
   update() {
     if (
       this.state !== SheepState.Running &&
-      distSq([this.x, this.y], [player.x, player.y]) < 48 * 48
+      distSq([this.x, this.y], [player.x, player.y]) < 32 * 32
     ) {
       this.state = SheepState.Running;
     }
@@ -434,15 +434,15 @@ player.y = map.start[1];
 
 const sheep = new ActiveFilteredList<Sheep>();
 for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
-  const x = Math.random() * map.width * map.tileSize;
-  const y = Math.random() * map.height * map.tileSize;
+  const x = Math.random() * map.width * 8;
+  const y = Math.random() * map.height * 8;
   sheep.add(new Sheep(x, y));
 }
 
 const birbs: Birb[] = [];
 for (let i = 0; i < (map.width * map.height) / (16 * 16); i++) {
-  const x = Math.random() * map.width * map.tileSize;
-  const y = Math.random() * map.height * map.tileSize;
+  const x = Math.random() * map.width * 8;
+  const y = Math.random() * map.height * 8;
   birbs.push(new Birb(x, y));
 }
 
@@ -475,14 +475,8 @@ loop(() => {
   addBugs();
   collideMap();
 
-  const cameraX = Math.min(
-    Math.max(player.x, width / 2),
-    map.width * map.tileSize - width / 2
-  );
-  const cameraY = Math.min(
-    Math.max(player.y, height / 2),
-    map.height * map.tileSize - height / 2
-  );
+  const cameraX = Math.min(Math.max(player.x, width / 2), map.width * 8 - width / 2);
+  const cameraY = Math.min(Math.max(player.y, height / 2), map.height * 8 - height / 2);
   renderer.camera(cameraX, cameraY);
 
   bugs.forEach(bug => bug.draw());
@@ -511,28 +505,26 @@ function collideMap() {
   const cameraTop = renderer.cameraY;
   const cameraBottom = renderer.cameraY + height;
 
-  const left = Math.max(Math.floor(cameraLeft / map.tileSize) - 1, 0);
-  const right = Math.min(Math.ceil(cameraRight / map.tileSize) + 1, map.width - 1);
-  const top = Math.max(Math.floor(cameraTop / map.tileSize) - 1, 0);
-  const bottom = Math.min(Math.ceil(cameraBottom / map.tileSize) + 1, map.height - 1);
+  const left = Math.max(Math.floor(cameraLeft / 8) - 1, 0);
+  const right = Math.min(Math.ceil(cameraRight / 8) + 1, map.width - 1);
+  const top = Math.max(Math.floor(cameraTop / 8) - 1, 0);
+  const bottom = Math.min(Math.ceil(cameraBottom / 8) + 1, map.height - 1);
 
   for (let mapX = left; mapX <= right; mapX++) {
     for (let mapY = top; mapY <= bottom; mapY++) {
       const tile = map.get(mapX, mapY);
       if (tile === Tile.Wall || tile === Tile.Water) {
-        const x = mapX * map.tileSize;
-        const y = mapY * map.tileSize;
+        const x = mapX * 8;
+        const y = mapY * 8;
 
-        player.resolveAabbCollision(x, y, map.tileSize, map.tileSize);
-        sheep.active.forEach(sheep =>
-          sheep.resolveAabbCollision(x, y, map.tileSize, map.tileSize)
-        );
+        player.resolveAabbCollision(x, y, 8, 8);
+        sheep.active.forEach(sheep => sheep.resolveAabbCollision(x, y, 8, 8));
       }
       // else if (map.get(mapX, mapY) === Tile.Tree) {
       //    player.resolveAabbCollision(
-      //      mapX * map.tileSize,
-      //      (mapY + 1) * map.tileSize - 6,
-      //      map.tileSize,
+      //      mapX * 8,
+      //      (mapY + 1) * 8 - 6,
+      //      8,
       //      6
       //    );
       // }
@@ -546,10 +538,10 @@ function drawMap() {
   const cameraTop = renderer.cameraY;
   const cameraBottom = renderer.cameraY + height;
 
-  const left = Math.max(Math.floor(cameraLeft / map.tileSize) - 2, 0);
-  const right = Math.min(Math.ceil(cameraRight / map.tileSize) + 1, map.width - 1);
-  const top = Math.max(Math.floor(cameraTop / map.tileSize) - 1, 0);
-  const bottom = Math.min(Math.ceil(cameraBottom / map.tileSize) + 4, map.height - 1);
+  const left = Math.max(Math.floor(cameraLeft / 8) - 2, 0);
+  const right = Math.min(Math.ceil(cameraRight / 8) + 1, map.width - 1);
+  const top = Math.max(Math.floor(cameraTop / 8) - 1, 0);
+  const bottom = Math.min(Math.ceil(cameraBottom / 8) + 4, map.height - 1);
 
   for (let mapX = left; mapX <= right; mapX++) {
     for (let mapY = top; mapY <= bottom; mapY++) {
@@ -562,13 +554,13 @@ function drawTile(mapX: number, mapY: number) {
   const tile = map.get(mapX, mapY);
   const random = map.getRandom(mapX, mapY);
   const color = mapColors[tile];
-  const x = mapX * map.tileSize;
-  const y = mapY * map.tileSize;
+  const x = mapX * 8;
+  const y = mapY * 8;
 
   if (tile === Tile.Pasture) {
-    drawGrass(x, y, map.tileSize, map.tileSize, 12, random);
+    drawGrass(x, y, 8, 8, 12, random);
   } else if (tile === Tile.Water) {
-    drawWater(x, y, map.tileSize, map.tileSize, random);
+    drawWater(x, y, 8, 8, random);
   } else if (tile === Tile.Wall) {
     drawWall(mapX, mapY);
   } else if (tile === Tile.Tree) {
@@ -576,11 +568,11 @@ function drawTile(mapX: number, mapY: number) {
   } else if (tile === Tile.Path) {
     // drawPath(x, y, random);
   } else if (tile === Tile.Ground) {
-    drawGround(x, y, map.tileSize, map.tileSize, random);
+    drawGround(x, y, 8, 8, random);
   } else if (tile === Tile.Bridge) {
     drawPath(x, y, random);
   } else {
-    renderer.rectfill(x, y, map.tileSize, map.tileSize, color, Number.NEGATIVE_INFINITY);
+    renderer.rectfill(x, y, 8, 8, color, Number.NEGATIVE_INFINITY);
   }
 }
 
@@ -611,20 +603,10 @@ function drawGrass(
       r < 0.5 ? palette.forestGreen : r < 0.75 ? palette.pineGreen : palette.outerSpace;
     const wi = wind * random();
 
-    // const toPlayerX = sx - player.x;
-    // const toPlayerY = sy - player.y;
-    // const toPlayer = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY);
-    const part = 0; // ((Math.max(8 - toPlayer, 0) / 4) * Math.abs(toPlayerX)) / toPlayerX;
-
-    renderer.line(sx, sy, sx + part + wi, sy - sh, c, sy);
+    renderer.line(sx, sy, sx + wi, sy - sh, c, sy);
 
     if (random() < 0.1) {
-      renderer.set(
-        Math.floor(sx + part + wi),
-        Math.floor(sy - sh - 1),
-        palette.tumbleweed,
-        sy
-      );
+      renderer.set(~~(sx + wi), ~~(sy - sh - 1), palette.tumbleweed, sy);
     }
   }
 }
@@ -679,10 +661,10 @@ function drawWater(x: number, y: number, w: number, h: number, random: () => num
 }
 
 function drawWall(mapX: number, mapY: number) {
-  const x = mapX * map.tileSize;
-  const y = mapY * map.tileSize;
+  const x = mapX * 8;
+  const y = mapY * 8;
   const frame = map.get(mapX, mapY + 1) === Tile.Wall ? 1 : 0;
-  renderer.spr("wall", x, y, frame, false, y + map.tileSize);
+  renderer.spr("wall", x, y, frame, false, y + 8);
 }
 
 function drawPath(x: number, y: number, random: () => number) {
@@ -691,14 +673,7 @@ function drawPath(x: number, y: number, random: () => number) {
 }
 
 function drawTree(x: number, y: number) {
-  renderer.spr(
-    "tree",
-    x + map.tileSize / 2 - 16,
-    y + map.tileSize - 48,
-    0,
-    false,
-    y + map.tileSize - 0.1
-  );
+  renderer.spr("tree", x + 8 / 2 - 16, y + 8 - 48, 0, false, y + 8 - 0.1);
 }
 
 function checkIfGrassTrampled(x: number, y: number) {
