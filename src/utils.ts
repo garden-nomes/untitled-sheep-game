@@ -91,15 +91,3 @@ export function hexToRgb(hex: string): Color {
 
   return [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16), 255];
 }
-
-export function distSq(x0: number, y0: number, x1: number, y1: number) {
-  const dx = x0 - x1;
-  const dy = y0 - y1;
-  return dx * dx + dy * dy;
-}
-
-export function dist(x0: number, y0: number, x1: number, y1: number) {
-  const dx = x0 - x1;
-  const dy = y0 - y1;
-  return Math.sqrt(dx * dx + dy * dy);
-}

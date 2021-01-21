@@ -4,6 +4,6 @@
         "types": ["vite/client", "node"],
         "moduleResolution": "Node",
         "resolveJsonModule": true,
-        "target": "ES6"
+        "target": "ES6",
     },
 }

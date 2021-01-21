@@ -3,9 +3,9 @@ import loop from "./framework";
 import generateMap from "./generate-map";
 import { Tile } from "./map";
 import { palette } from "./sprites";
-import { distSq } from "./utils";
 import { TextAlign } from "./renderer";
 import sheepNames from "./sheep-names";
+import { add, dist, distSq, mag, mul, normalize } from "./vector";
 
 const mapColors = {
   [Tile.Ground]: palette.timberwolf,
@@ -17,7 +17,7 @@ const mapColors = {
   [Tile.Bridge]: palette.shadow
 };
 
-// showFps(true);
+showFps(true);
 
 let wind = 0;
 
@@ -149,14 +149,14 @@ class Birb {
   update() {
     if (
       this.state !== BirbState.Flying &&
-      distSq(this.x, this.y, player.x, player.y) < 48 * 48
+      distSq([this.x, this.y], [player.x, player.y]) < 48 * 48
     ) {
       this.state = BirbState.Flying;
       this.reverse = this.flightDirection < Math.PI / 2;
     }
 
     if (this.state === BirbState.Standing) {
-      if (Math.random() < deltaTime / 1) {
+      if (Math.random() < deltaTime / 4) {
         this.state = BirbState.Hopping;
         this.reverse = Math.random() < 0.5;
         this.hops = Math.floor(Math.random() * 3) + 1;
@@ -220,7 +220,8 @@ class Birb {
 
 enum SheepState {
   Standing,
-  Walking
+  Walking,
+  Running
 }
 
 class Sheep {
@@ -229,6 +230,8 @@ class Sheep {
   walkDirection = 0;
   walkTimer = 0;
   reverse = false;
+  isMoving = false;
+  switchDirectionCooldown = 0;
   name = "Baba";
 
   constructor(public x: number, public y: number) {
@@ -236,6 +239,16 @@ class Sheep {
   }
 
   update() {
+    if (
+      this.state !== SheepState.Running &&
+      distSq([this.x, this.y], [player.x, player.y]) < 48 * 48
+    ) {
+      this.state = SheepState.Running;
+    }
+
+    const px = this.x;
+    const py = this.y;
+
     if (this.state === SheepState.Standing) {
       this.animtimer = 0;
 
@@ -243,11 +256,8 @@ class Sheep {
         this.walkDirection = Math.random() * Math.PI * 2;
         this.walkTimer = 2;
         this.state = SheepState.Walking;
-        this.reverse = Math.cos(this.walkDirection) > 0;
       }
     } else if (this.state === SheepState.Walking) {
-      this.animtimer += deltaTime;
-
       this.x += Math.cos(this.walkDirection) * 32 * deltaTime;
       this.y += Math.sin(this.walkDirection) * 32 * deltaTime;
 
@@ -255,7 +265,95 @@ class Sheep {
       if (this.walkTimer <= 0) {
         this.state = SheepState.Standing;
       }
+    } else if (this.state === SheepState.Running) {
+      this.run();
     }
+
+    this.switchDirectionCooldown -= deltaTime;
+    if (this.x !== px || this.y !== py) {
+      if (this.switchDirectionCooldown <= 0) {
+        if (this.x < px) {
+          this.reverse = false;
+          this.switchDirectionCooldown = 0.5;
+        }
+
+        if (this.x > px) {
+          this.reverse = true;
+          this.switchDirectionCooldown = 0.5;
+        }
+      }
+      this.isMoving = true;
+      this.animtimer += deltaTime;
+    }
+  }
+
+  run() {
+    if (distSq([this.x, this.y], [player.x, player.y]) > 96 * 96) {
+      this.state = SheepState.Standing;
+    }
+
+    // flocking behaviors
+
+    let steeringX = 0;
+    let steeringY = 0;
+
+    // escape player
+
+    let fromPlayer = [this.x - player.x, this.y - player.y];
+    let fromPlayerDist = mag(fromPlayer);
+    fromPlayer = mul(normalize(fromPlayer), Math.max(128 - fromPlayerDist, 0));
+
+    steeringX += fromPlayer[0];
+    steeringY += fromPlayer[1];
+
+    // cohere to and seperate from neighbors
+
+    let [centerX, centerY] = [0, 0];
+    let neighborCount = 0;
+    for (const other of sheep.active) {
+      if (other === this || other.state !== SheepState.Running) continue;
+      if (distSq([other.x, other.y], [this.x, this.y]) > 96 * 96) continue;
+
+      // seperation
+      let fromOther = [this.x - other.x, this.y - other.y];
+      let fromOtherDist = mag(fromOther);
+      fromOther = mul(
+        normalize(fromOther),
+        Math.max(16 * 16 - fromOtherDist * fromOtherDist, 0) * 2
+      );
+      steeringX += fromOther[0];
+      steeringY += fromOther[1];
+
+      centerX += other.x;
+      centerY += other.y;
+      neighborCount++;
+    }
+
+    // cohere
+    if (neighborCount > 0) {
+      centerX /= neighborCount;
+      centerY /= neighborCount;
+
+      const toCenterNorm = normalize([centerX - this.x, centerY - this.y]);
+      steeringX += toCenterNorm[0] * 64;
+      steeringY += toCenterNorm[1] * 64;
+    }
+
+    [steeringX, steeringY] = normalize([steeringX, steeringY]);
+
+    this.x += steeringX * 40 * deltaTime;
+    this.y += steeringY * 40 * deltaTime;
+  }
+
+  showForceDebug([x, y]: number[], color = palette.tumbleweed) {
+    renderer.line(
+      this.x,
+      this.y,
+      this.x + x * 0.2,
+      this.y + y * 0.2,
+      color,
+      Number.POSITIVE_INFINITY
+    );
   }
 
   onCollide() {
@@ -283,10 +381,11 @@ class Sheep {
   }
 
   get frame() {
-    if (this.state === SheepState.Standing) return 0;
-    else if (this.state === SheepState.Walking) {
+    if (this.isMoving) {
       return 2 + (Math.floor(this.animtimer * 8) % 4);
     }
+
+    return 0;
   }
 
   draw() {
@@ -305,21 +404,43 @@ class Sheep {
   }
 }
 
+class ActiveFilteredList<T extends { x: number; y: number }> {
+  items: T[] = [];
+  active: T[] = [];
+
+  add(item: T) {
+    this.items.push(item);
+  }
+
+  remove(item: T) {
+    this.items.splice(this.items.indexOf(item), 1);
+  }
+
+  updateActive(cx: number, cy: number, w: number, h: number) {
+    const w2 = w / 2;
+    const h2 = h / 2;
+
+    this.active = this.items.filter(
+      ({ x, y }) => x > cx - w2 && x < cx + w2 && y > cy - h2 && y < cy + h2
+    );
+  }
+}
+
 const map = generateMap(256, 256);
 
 const player = new Player();
 player.x = map.start[0];
 player.y = map.start[1];
 
-const sheep: Sheep[] = [];
-for (let i = 0; i < 5; i++) {
-  const x = player.x + (Math.random() * 64 + 32) * (Math.random() < 0.5 ? 1 : -1);
-  const y = player.y + (Math.random() * 64 + 32) * (Math.random() < 0.5 ? 1 : -1);
-  sheep.push(new Sheep(x, y));
+const sheep = new ActiveFilteredList<Sheep>();
+for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
+  const x = Math.random() * map.width * map.tileSize;
+  const y = Math.random() * map.height * map.tileSize;
+  sheep.add(new Sheep(x, y));
 }
 
 const birbs: Birb[] = [];
-for (let i = 0; i < (map.width * map.height) / 256; i++) {
+for (let i = 0; i < (map.width * map.height) / (16 * 16); i++) {
   const x = Math.random() * map.width * map.tileSize;
   const y = Math.random() * map.height * map.tileSize;
   birbs.push(new Birb(x, y));
@@ -345,9 +466,12 @@ loop(() => {
   }
 
   player.update();
+
+  sheep.updateActive(player.x, player.y, width * 1.5, height * 1.5);
+
   bugs.forEach(bug => bug.update());
   birbs.forEach(birb => birb.update());
-  sheep.forEach(sheep => sheep.update());
+  sheep.active.forEach(sheep => sheep.update());
   addBugs();
   collideMap();
 
@@ -363,7 +487,7 @@ loop(() => {
 
   bugs.forEach(bug => bug.draw());
   birbs.forEach(birb => birb.draw());
-  sheep.forEach(sheep => sheep.draw());
+  sheep.active.forEach(sheep => sheep.draw());
   player.draw();
   drawMap();
 });
@@ -400,7 +524,7 @@ function collideMap() {
         const y = mapY * map.tileSize;
 
         player.resolveAabbCollision(x, y, map.tileSize, map.tileSize);
-        sheep.forEach(sheep =>
+        sheep.active.forEach(sheep =>
           sheep.resolveAabbCollision(x, y, map.tileSize, map.tileSize)
         );
       }
@@ -524,7 +648,7 @@ function drawGround(x: number, y: number, w: number, h: number, random: () => nu
       steppedOnStalkTimers[id] = Math.random() * 2 + 1;
     }
 
-    sheep.forEach(sheep => {
+    sheep.active.forEach(sheep => {
       const toSheepX = sx - sheep.x;
       const toSheepY = sy - sheep.y;
       const toSheepSq = toSheepX * toSheepX + toSheepY * toSheepY;
@@ -586,7 +710,7 @@ function checkIfGrassTrampled(x: number, y: number) {
     return true;
   }
 
-  return sheep.some(sheep => {
+  return sheep.active.some(sheep => {
     const toSheepX = x - sheep.x;
     const toSheepY = y - sheep.y;
     const toSheepSq = toSheepX * toSheepX + toSheepY * toSheepY;
