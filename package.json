@@ -21,7 +21,7 @@
   },
   "scripts": {
     "dev": "concurrently \"vite\" \"npm-watch\"",
-    "build": "npm run build-sprites && vite build",
+    "build": "npm run build:sprites && vite build",
     "build:aesprite": "cd assets/sprites && /Applications/Aseprite.app/Contents/MacOS/aseprite -b *.aseprite --sheet sprites.png --data sprites.json",
     "build:sprites": "ts-node build/process-sprites.ts",
     "build:font": "ts-node build/process-font.ts",
