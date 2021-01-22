@@ -21,6 +21,51 @@ showFps(true);
 
 let wind = 0;
 
+class FootstepTrail {
+  width = 4;
+  stride = 4;
+  max = 128;
+  footsteps = [];
+  footstepAlt = false;
+  color = palette.gray;
+  private distanceToNextFootstep = 0;
+
+  constructor(private x: number, private y: number) {}
+
+  move(x: number, y: number) {
+    if (x !== this.x || y !== this.y) {
+      this.distanceToNextFootstep -= dist([this.x, this.y], [x, y]);
+
+      if (this.distanceToNextFootstep <= 0) {
+        const [vx, vy] = normalize([x - this.x, y - this.y]);
+
+        const [ox, oy] = this.footstepAlt ? [vy, -vx] : [-vy, vx];
+        this.footstepAlt = !this.footstepAlt;
+
+        const fx = this.x + ox * this.width * 0.5;
+        const fy = this.y - 1 + oy * this.width * 0.5;
+
+        this.footsteps.push([fx, fy]);
+
+        if (this.footsteps.length > this.max) {
+          this.footsteps.splice(0, 1);
+        }
+
+        this.distanceToNextFootstep = this.stride;
+      }
+    }
+
+    this.x = x;
+    this.y = y;
+  }
+
+  draw() {
+    for (const [x, y] of this.footsteps) {
+      renderer.set(~~x, ~~y, this.color, y);
+    }
+  }
+}
+
 class Player {
   x = 0;
   y = 0;
@@ -29,6 +74,7 @@ class Player {
   speed = 64;
   reverse = false;
   animtimer = 0;
+  footsteps = new FootstepTrail(this.x, this.y);
 
   update() {
     this.animtimer += deltaTime;
@@ -58,6 +104,8 @@ class Player {
     // update position
     this.x += this.vx * deltaTime;
     this.y += this.vy * deltaTime;
+
+    this.footsteps.move(this.x, this.y);
   }
 
   resolveAabbCollision(ox: number, oy: number, ow: number, oh: number) {
@@ -93,6 +141,7 @@ class Player {
 
   draw() {
     renderer.spr("player", this.x - 8, this.y - 16, this.frame, false, this.y);
+    this.footsteps.draw();
   }
 }
 
@@ -233,9 +282,14 @@ class Sheep {
   isMoving = false;
   switchDirectionCooldown = 0;
   name = "Baba";
+  footsteps = new FootstepTrail(this.x, this.y);
 
   constructor(public x: number, public y: number) {
     this.name = sheepNames[Math.floor(Math.random() * sheepNames.length)];
+
+    this.footsteps.stride = 3;
+    this.footsteps.width = 3;
+    this.footsteps.color = palette.manatee;
   }
 
   update() {
@@ -285,6 +339,8 @@ class Sheep {
       this.isMoving = true;
       this.animtimer += deltaTime;
     }
+
+    this.footsteps.move(this.x, this.y);
   }
 
   run() {
@@ -390,6 +446,7 @@ class Sheep {
 
   draw() {
     renderer.spr("sheep", this.x - 8, this.y - 16, this.frame, this.reverse, this.y);
+    this.footsteps.draw();
 
     // if (distSq(this.x, this.y, player.x, player.y) < 16 * 16) {
     //   renderer.text(
