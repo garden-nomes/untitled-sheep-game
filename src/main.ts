@@ -3,9 +3,8 @@ import loop from "./framework";
 import generateMap from "./generate-map";
 import { Tile } from "./map";
 import { palette } from "./sprites";
-import { TextAlign } from "./renderer";
 import sheepNames from "./sheep-names";
-import { add, dist, distSq, mag, mul, normalize } from "./vector";
+import { dist, distSq, mag, mul, normalize } from "./vector";
 
 const mapColors = {
   [Tile.Ground]: palette.timberwolf,
@@ -17,7 +16,7 @@ const mapColors = {
   [Tile.Bridge]: palette.shadow
 };
 
-showFps(true);
+// showFps(true);
 
 let wind = 0;
 
