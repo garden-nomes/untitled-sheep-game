@@ -28,6 +28,15 @@ export default class Renderer {
     this.clear();
   }
 
+  clientToGameCoordinates(clientX: number, clientY: number): [number, number] {
+    const { left, top, width, height } = this.context.canvas.getBoundingClientRect();
+
+    return [
+      (clientX - left) * (this.width / width),
+      (clientY - top) * (this.height / height)
+    ];
+  }
+
   resize() {
     this.width = this.context.canvas.width;
     this.height = this.context.canvas.height;
