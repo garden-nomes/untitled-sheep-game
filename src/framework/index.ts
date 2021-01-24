@@ -1,6 +1,7 @@
 import Keyboard from "./keyboard";
 import Renderer from "./renderer";
-import { palette } from "./sprites";
+import TouchControls from "./touch-controls";
+import { palette as palette_ } from "./sprites";
 
 // grab fps label
 
@@ -16,8 +17,8 @@ if (paletteDiv) {
   const ul = paletteDiv.appendChild(document.createElement("ul"));
   ul.className = "palette-list";
 
-  for (const colorName in palette) {
-    const [r, g, b] = palette[colorName];
+  for (const colorName in palette_) {
+    const [r, g, b] = palette_[colorName];
 
     const li = ul.appendChild(document.createElement("li"));
     li.className = "palette-list_item";
@@ -42,6 +43,8 @@ const context = canvas.getContext("2d");
 declare global {
   var renderer: Renderer;
   var keyboard: Keyboard;
+  var touchControls: TouchControls;
+  var palette: typeof palette_;
   var width: number;
   var height: number;
   var deltaTime: number;
@@ -54,6 +57,8 @@ declare global {
 
 (window as any).renderer = new Renderer(context);
 (window as any).keyboard = new Keyboard();
+(window as any).touchControls = new TouchControls();
+(window as any).palette = palette_;
 (window as any).width = 0;
 (window as any).height = 0;
 (window as any).deltaTime = 0;

@@ -1,5 +1,5 @@
 import font from "./font";
-import sprites, { palette, SpriteName } from "./sprites";
+import sprites, { SpriteName } from "./sprites";
 
 export type Color = [number, number, number, number];
 

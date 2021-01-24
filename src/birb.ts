@@ -1,8 +1,6 @@
 import { distSq } from "./vector";
 import { state } from "./main";
 
-const { player, birbs } = state;
-
 enum BirbState {
   Standing,
   Hopping,
@@ -25,6 +23,8 @@ export default class Birb {
   }
 
   update() {
+    const { player, birbs } = state;
+
     if (
       this.state !== BirbState.Flying &&
       distSq([this.x, this.y], [player.x, player.y]) < 48 * 48

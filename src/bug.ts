@@ -1,7 +1,4 @@
-import { palette } from "./sprites";
 import { state } from "./main";
-
-const { bugs } = state;
 
 export default class Bug {
   depth: number;
@@ -15,6 +12,8 @@ export default class Bug {
   }
 
   update() {
+    const { bugs } = state;
+
     this.x += (Math.random() * 2 - 1) * deltaTime * 100;
     this.y += (Math.random() * 2 - 1) * deltaTime * 100;
     this.z += (Math.random() - (this.lifespan < 3 ? 0.75 : 0.25)) * deltaTime * 100;

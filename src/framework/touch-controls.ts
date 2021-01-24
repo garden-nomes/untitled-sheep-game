@@ -1,7 +1,6 @@
-import { palette } from "./sprites";
-import { normalize } from "./vector";
+import { normalize } from "../vector";
 
-class TouchControls {
+export default class TouchControls {
   touchId: number | null = null;
   touchPos: [number, number] | null = null;
   startPos: [number, number] | null = null;
@@ -49,7 +48,7 @@ class TouchControls {
     renderer.circfill(
       renderer.cameraX + this.startPos[0],
       renderer.cameraY + this.startPos[1],
-      4,
+      8,
       palette.aquamarine,
       Number.POSITIVE_INFINITY
     );
@@ -57,8 +56,17 @@ class TouchControls {
     renderer.circfill(
       renderer.cameraX + this.touchPos[0],
       renderer.cameraY + this.touchPos[1],
-      4,
+      8,
       palette.chestnut,
+      Number.POSITIVE_INFINITY
+    );
+
+    renderer.line(
+      renderer.cameraX + this.startPos[0],
+      renderer.cameraY + this.startPos[1],
+      renderer.cameraX + this.touchPos[0],
+      renderer.cameraY + this.touchPos[1],
+      palette.gray,
       Number.POSITIVE_INFINITY
     );
   }
@@ -78,5 +86,3 @@ class TouchControls {
     }
   }
 }
-
-export default new TouchControls();

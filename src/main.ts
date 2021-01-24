@@ -2,8 +2,6 @@ import "./style.css";
 import loop from "./framework";
 import generateMap from "./generate-map";
 import { Tile } from "./map";
-import { palette } from "./framework/sprites";
-import touchControls from "./framework/touch-controls";
 import Player from "./player";
 import Bug from "./bug";
 import Birb from "./birb";

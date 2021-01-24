@@ -1,5 +1,9 @@
-import { frames, sprites, palette as paletteRaw } from "../assets/sprites/sprites.json";
-import spriteSheetUrl from "../assets/sprites/sprites.png";
+import {
+  frames,
+  sprites,
+  palette as paletteRaw
+} from "../../assets/sprites/sprites.json";
+import spriteSheetUrl from "../../assets/sprites/sprites.png";
 import { Color } from "./renderer";
 
 export const palette = (paletteRaw as unknown) as Record<keyof typeof paletteRaw, Color>;

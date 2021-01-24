@@ -1,5 +1,4 @@
 import { randomLcg } from "d3-random";
-import random from "./random";
 import { line, mod } from "./utils";
 
 export enum Tile {
@@ -28,7 +27,7 @@ export default class Map {
 
     this.seeds = new Float32Array(this.grid.length);
     for (let i = 0; i < this.grid.length; i++) {
-      this.seeds[i] = random();
+      this.seeds[i] = Math.random();
     }
   }
 

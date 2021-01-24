@@ -1,4 +1,3 @@
-import touchControls from "./touch-controls";
 import FootstepTrail from "./footstep-trail";
 
 export default class Player {

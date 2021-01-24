@@ -1,10 +1,7 @@
-import { palette } from "./sprites";
 import sheepNames from "./sheep-names";
 import { distSq, mag, mul, normalize } from "./vector";
 import FootstepTrail from "./footstep-trail";
 import { state } from "./main";
-
-const { player, sheep } = state;
 
 export enum SheepState {
   Standing,
@@ -32,6 +29,8 @@ export default class Sheep {
   }
 
   update() {
+    const { player } = state;
+
     if (
       this.state !== SheepState.Running &&
       distSq([this.x, this.y], [player.x, player.y]) < 32 * 32
@@ -83,6 +82,8 @@ export default class Sheep {
   }
 
   run() {
+    const { player, sheep } = state;
+
     if (distSq([this.x, this.y], [player.x, player.y]) > 96 * 96) {
       this.state = SheepState.Standing;
     }

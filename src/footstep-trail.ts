@@ -1,4 +1,3 @@
-import { palette } from "./sprites";
 import { dist, normalize } from "./vector";
 
 export default class FootstepTrail {

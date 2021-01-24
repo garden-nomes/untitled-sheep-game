@@ -1,5 +1,5 @@
-import * as fontData from "../assets/font/font.json";
-import fontSheetUrl from "../assets/font/font.png";
+import * as fontData from "../../assets/font/font.json";
+import fontSheetUrl from "../../assets/font/font.png";
 
 (window as any).fontData = fontData;
 
