@@ -3,8 +3,13 @@ import loop from "./framework";
 import generateMap from "./generate-map";
 import { Tile } from "./map";
 import { palette } from "./sprites";
-import sheepNames from "./sheep-names";
-import { dist, distSq, mag, mul, normalize } from "./vector";
+import touchControls from "./touch-controls";
+import Player from "./player";
+import Bug from "./bug";
+import Birb from "./birb";
+import Sheep from "./sheep";
+
+// showFps(true);
 
 const mapColors = {
   [Tile.Ground]: palette.timberwolf,
@@ -16,537 +21,12 @@ const mapColors = {
   [Tile.Bridge]: palette.shadow
 };
 
-// showFps(true);
-
 let wind = 0;
 
-class TouchControls {
-  touchId: number | null = null;
-  touchPos: [number, number] | null = null;
-  startPos: [number, number] | null = null;
-
-  constructor() {
-    window.addEventListener("touchstart", this.touchStart.bind(this));
-    window.addEventListener("touchend", this.touchEnd.bind(this));
-    window.addEventListener("touchmove", this.touchMove.bind(this));
-  }
-
-  touchStart(event: TouchEvent) {
-    if (this.touchId === null) {
-      const touch = event.changedTouches[0];
-      this.touchId = touch.identifier;
-
-      const pos = renderer.clientToGameCoordinates(touch.clientX, touch.clientY);
-      this.startPos = pos;
-      this.touchPos = pos;
-    }
-  }
-
-  touchEnd(event: TouchEvent) {
-    for (const touch of event.changedTouches) {
-      if (touch.identifier === this.touchId) {
-        this.touchId = null;
-        this.startPos = null;
-        this.touchPos = null;
-      }
-    }
-  }
-
-  touchMove(event: TouchEvent) {
-    for (const touch of event.changedTouches) {
-      if (touch.identifier === this.touchId) {
-        const touch = event.changedTouches[0];
-        const pos = renderer.clientToGameCoordinates(touch.clientX, touch.clientY);
-        this.touchPos = pos;
-      }
-    }
-  }
-
-  draw() {
-    if (this.touchId === null) return;
-
-    renderer.circfill(
-      renderer.cameraX + this.startPos[0],
-      renderer.cameraY + this.startPos[1],
-      4,
-      palette.aquamarine,
-      Number.POSITIVE_INFINITY
-    );
-
-    renderer.circfill(
-      renderer.cameraX + this.touchPos[0],
-      renderer.cameraY + this.touchPos[1],
-      4,
-      palette.chestnut,
-      Number.POSITIVE_INFINITY
-    );
-  }
-
-  get direction(): [number, number] {
-    if (this.touchId === null) {
-      return [0, 0];
-    } else {
-      const [x0, y0] = this.startPos;
-      const [x1, y1] = this.touchPos;
-
-      if (x0 === x1 && y0 === y1) {
-        return [0, 0];
-      }
-
-      return normalize([x1 - x0, y1 - y0]) as [number, number];
-    }
-  }
-}
-
-const touchControls = new TouchControls();
-
-class FootstepTrail {
-  width = 4;
-  stride = 4;
-  max = 128;
-  footsteps = [];
-  footstepAlt = false;
-  color = palette.gray;
-  private distanceToNextFootstep = 0;
-
-  constructor(private x: number, private y: number) {}
-
-  move(x: number, y: number) {
-    if (x !== this.x || y !== this.y) {
-      this.distanceToNextFootstep -= dist([this.x, this.y], [x, y]);
-
-      if (this.distanceToNextFootstep <= 0) {
-        const [vx, vy] = normalize([x - this.x, y - this.y]);
-
-        const [ox, oy] = this.footstepAlt ? [vy, -vx] : [-vy, vx];
-        this.footstepAlt = !this.footstepAlt;
-
-        const fx = this.x + ox * this.width * 0.5;
-        const fy = this.y - 1 + oy * this.width * 0.5;
-
-        this.footsteps.push([fx, fy]);
-
-        if (this.footsteps.length > this.max) {
-          this.footsteps.splice(0, 1);
-        }
-
-        this.distanceToNextFootstep = this.stride;
-      }
-    }
-
-    this.x = x;
-    this.y = y;
-  }
-
-  draw() {
-    for (const [x, y] of this.footsteps) {
-      renderer.set(~~x, ~~y, this.color, y);
-    }
-  }
-}
-
-class Player {
-  x = 0;
-  y = 0;
-  vx = 0;
-  vy = 0;
-  speed = 64;
-  reverse = false;
-  animtimer = 0;
-  footsteps = new FootstepTrail(this.x, this.y);
-
-  update() {
-    this.animtimer += deltaTime;
-
-    // create (x, y) input vector
-    let moveX = 0;
-    let moveY = 0;
-    if (keyboard.isDown("left")) moveX--;
-    if (keyboard.isDown("right")) moveX++;
-    if (keyboard.isDown("up")) moveY--;
-    if (keyboard.isDown("down")) moveY++;
-
-    // normalize diagonal movement
-    if (moveX !== 0 && moveY !== 0) {
-      moveX /= Math.SQRT2;
-      moveY /= Math.SQRT2;
-    }
-
-    if (moveX === 0 && moveY === 0) {
-      [moveX, moveY] = touchControls.direction;
-    }
-
-    // update player facing position
-    if (moveX < 0) this.reverse = true;
-    else if (moveX > 0) this.reverse = false;
-
-    // scale by speed
-    this.vx = moveX * this.speed;
-    this.vy = moveY * this.speed;
-
-    // update position
-    this.x += this.vx * deltaTime;
-    this.y += this.vy * deltaTime;
-
-    this.footsteps.move(this.x, this.y);
-  }
-
-  resolveAabbCollision(ox: number, oy: number, ow: number, oh: number) {
-    const [x, y, w, h] = [this.x - 4, this.y - 4, 8, 4];
-
-    const dx = x + w / 2 - ox - ow / 2;
-    const px = ow / 2 + w / 2 - Math.abs(dx);
-    if (px > 0) {
-      const dy = y + h / 2 - oy - oh / 2;
-      const py = oh / 2 + h / 2 - Math.abs(dy);
-      if (py > 0) {
-        if (px < py) {
-          this.x += px * (Math.abs(dx) / dx);
-        } else {
-          this.y += py * (Math.abs(dy) / dy);
-        }
-      }
-    }
-  }
-
-  get isMoving() {
-    return this.vx !== 0 || this.vy !== 0;
-  }
-
-  get frame() {
-    if (this.isMoving) {
-      const frame = Math.floor(this.animtimer * 6) % 2;
-      return this.reverse ? 4 + frame : 1 + frame;
-    } else {
-      return this.reverse ? 3 : 0;
-    }
-  }
-
-  draw() {
-    renderer.spr("player", this.x - 8, this.y - 16, this.frame, false, this.y);
-    this.footsteps.draw();
-  }
-}
-
-class Bug {
-  depth: number;
-  lifespan: number;
-  z = 0;
-
-  constructor(private x: number, private y: number) {
-    this.depth = this.y;
-    this.lifespan = 20;
-    this.z = 0;
-  }
-
-  update() {
-    this.x += (Math.random() * 2 - 1) * deltaTime * 100;
-    this.y += (Math.random() * 2 - 1) * deltaTime * 100;
-    this.z += (Math.random() - (this.lifespan < 3 ? 0.75 : 0.25)) * deltaTime * 100;
-    if (this.z < 0) this.z = 0;
-    if (this.z > 16) this.z = 16;
-
-    this.lifespan -= deltaTime;
-    if (this.lifespan <= 0) {
-      bugs.splice(bugs.indexOf(this), 1);
-    }
-  }
-
-  draw() {
-    renderer.set(~~this.x, ~~(this.y - this.z), palette.violetPurple, this.y);
-  }
-}
-
-enum BirbState {
-  Standing,
-  Hopping,
-  Flying
-}
-
-class Birb {
-  state = BirbState.Standing;
-  animtimer = 0;
-  z = 0;
-  flightDirection: number;
-  lifetimer = 20;
-  reverse = false;
-  hops = 1;
-  hopStartX: number;
-  hopTimer: number;
-
-  constructor(public x: number, public y: number) {
-    this.flightDirection = (Math.random() * Math.PI) / 2 + Math.PI / 4;
-  }
-
-  update() {
-    if (
-      this.state !== BirbState.Flying &&
-      distSq([this.x, this.y], [player.x, player.y]) < 48 * 48
-    ) {
-      this.state = BirbState.Flying;
-      this.reverse = this.flightDirection < Math.PI / 2;
-    }
-
-    if (this.state === BirbState.Standing) {
-      if (Math.random() < deltaTime / 4) {
-        this.state = BirbState.Hopping;
-        this.reverse = Math.random() < 0.5;
-        this.hops = Math.floor(Math.random() * 3) + 1;
-        this.hopStartX = this.x;
-        this.hopTimer = this.hops / 4;
-      }
-    }
-
-    if (this.state === BirbState.Flying) {
-      this.x += Math.cos(this.flightDirection) * 96 * deltaTime;
-      this.z += Math.sin(this.flightDirection) * 96 * deltaTime;
-
-      this.animtimer += deltaTime;
-      this.lifetimer -= deltaTime;
-
-      if (this.lifetimer <= 0) {
-        birbs.splice(birbs.indexOf(this), 1);
-      }
-    }
-
-    if (this.state === BirbState.Hopping) {
-      this.hopTimer -= deltaTime;
-
-      if (this.hopTimer <= 0) {
-        this.x = this.hopStartX + this.hops * 4 * (this.reverse ? 1 : -1);
-        this.z = 0;
-        this.state = BirbState.Standing;
-      } else {
-        this.x =
-          this.hopStartX +
-          (1 - this.hopTimer / (this.hops / 4)) * this.hops * 4 * (this.reverse ? 1 : -1);
-
-        this.z =
-          Math.max(
-            Math.sin(this.hopTimer * 4 * Math.PI),
-            Math.sin((this.hopTimer * 4 + 1) * Math.PI)
-          ) * 2;
-      }
-    }
-  }
-
-  get frame() {
-    if (this.state === BirbState.Flying) {
-      return (Math.floor(this.animtimer * 8) % 3) + 1;
-    } else {
-      return 0;
-    }
-  }
-
-  draw() {
-    renderer.spr(
-      "birb",
-      this.x - 1,
-      this.y - this.z - 3,
-      this.frame,
-      this.reverse,
-      this.y
-    );
-  }
-}
-
-enum SheepState {
-  Standing,
-  Walking,
-  Running
-}
-
-class Sheep {
-  animtimer = 0;
-  state = SheepState.Standing;
-  walkDirection = 0;
-  walkTimer = 0;
-  reverse = false;
-  isMoving = false;
-  switchDirectionCooldown = 0;
-  name = "Baba";
-  footsteps = new FootstepTrail(this.x, this.y);
-
-  constructor(public x: number, public y: number) {
-    this.name = sheepNames[Math.floor(Math.random() * sheepNames.length)];
-
-    this.footsteps.stride = 3;
-    this.footsteps.width = 3;
-    this.footsteps.color = palette.manatee;
-  }
-
-  update() {
-    if (
-      this.state !== SheepState.Running &&
-      distSq([this.x, this.y], [player.x, player.y]) < 32 * 32
-    ) {
-      this.state = SheepState.Running;
-    }
-
-    const px = this.x;
-    const py = this.y;
-
-    if (this.state === SheepState.Standing) {
-      this.animtimer = 0;
-
-      if (Math.random() < deltaTime / 5) {
-        this.walkDirection = Math.random() * Math.PI * 2;
-        this.walkTimer = 2;
-        this.state = SheepState.Walking;
-      }
-    } else if (this.state === SheepState.Walking) {
-      this.x += Math.cos(this.walkDirection) * 32 * deltaTime;
-      this.y += Math.sin(this.walkDirection) * 32 * deltaTime;
-
-      this.walkTimer -= deltaTime;
-      if (this.walkTimer <= 0) {
-        this.state = SheepState.Standing;
-      }
-    } else if (this.state === SheepState.Running) {
-      this.run();
-    }
-
-    this.switchDirectionCooldown -= deltaTime;
-    if (this.x !== px || this.y !== py) {
-      if (this.switchDirectionCooldown <= 0) {
-        if (this.x < px) {
-          this.reverse = false;
-          this.switchDirectionCooldown = 0.5;
-        }
-
-        if (this.x > px) {
-          this.reverse = true;
-          this.switchDirectionCooldown = 0.5;
-        }
-      }
-      this.isMoving = true;
-      this.animtimer += deltaTime;
-    }
-
-    this.footsteps.move(this.x, this.y);
-  }
-
-  run() {
-    if (distSq([this.x, this.y], [player.x, player.y]) > 96 * 96) {
-      this.state = SheepState.Standing;
-    }
-
-    // flocking behaviors
-
-    let steeringX = 0;
-    let steeringY = 0;
-
-    // escape player
-
-    let fromPlayer = [this.x - player.x, this.y - player.y];
-    let fromPlayerDist = mag(fromPlayer);
-    fromPlayer = mul(normalize(fromPlayer), Math.max(128 - fromPlayerDist, 0));
-
-    steeringX += fromPlayer[0];
-    steeringY += fromPlayer[1];
-
-    // cohere to and seperate from neighbors
-
-    let [centerX, centerY] = [0, 0];
-    let neighborCount = 0;
-    for (const other of sheep.active) {
-      if (other === this || other.state !== SheepState.Running) continue;
-      if (distSq([other.x, other.y], [this.x, this.y]) > 96 * 96) continue;
-
-      // seperation
-      let fromOther = [this.x - other.x, this.y - other.y];
-      let fromOtherDist = mag(fromOther);
-      fromOther = mul(
-        normalize(fromOther),
-        Math.max(16 * 16 - fromOtherDist * fromOtherDist, 0) * 2
-      );
-      steeringX += fromOther[0];
-      steeringY += fromOther[1];
-
-      centerX += other.x;
-      centerY += other.y;
-      neighborCount++;
-    }
-
-    // cohere
-    if (neighborCount > 0) {
-      centerX /= neighborCount;
-      centerY /= neighborCount;
-
-      const toCenterNorm = normalize([centerX - this.x, centerY - this.y]);
-      steeringX += toCenterNorm[0] * 64;
-      steeringY += toCenterNorm[1] * 64;
-    }
-
-    [steeringX, steeringY] = normalize([steeringX, steeringY]);
-
-    this.x += steeringX * 40 * deltaTime;
-    this.y += steeringY * 40 * deltaTime;
-  }
-
-  showForceDebug([x, y]: number[], color = palette.tumbleweed) {
-    renderer.line(
-      this.x,
-      this.y,
-      this.x + x * 0.2,
-      this.y + y * 0.2,
-      color,
-      Number.POSITIVE_INFINITY
-    );
-  }
-
-  onCollide() {
-    this.state = SheepState.Standing;
-  }
-
-  resolveAabbCollision(ox: number, oy: number, ow: number, oh: number) {
-    const [x, y, w, h] = [this.x - 4, this.y - 4, 8, 4];
-
-    const dx = x + w / 2 - ox - ow / 2;
-    const px = ow / 2 + w / 2 - Math.abs(dx);
-    if (px > 0) {
-      const dy = y + h / 2 - oy - oh / 2;
-      const py = oh / 2 + h / 2 - Math.abs(dy);
-      if (py > 0) {
-        if (px < py) {
-          this.x += px * (Math.abs(dx) / dx);
-        } else {
-          this.y += py * (Math.abs(dy) / dy);
-        }
-
-        this.onCollide();
-      }
-    }
-  }
-
-  get frame() {
-    if (this.isMoving) {
-      return 2 + (Math.floor(this.animtimer * 8) % 4);
-    }
-
-    return 0;
-  }
-
-  draw() {
-    renderer.spr("sheep", this.x - 8, this.y - 16, this.frame, this.reverse, this.y);
-    this.footsteps.draw();
-
-    // if (distSq(this.x, this.y, player.x, player.y) < 16 * 16) {
-    //   renderer.text(
-    //     this.name,
-    //     this.x,
-    //     this.y - 20 + Math.sin(elapsed * 3),
-    //     TextAlign.Center,
-    //     palette.black,
-    //     palette.timberwolf
-    //   );
-    // }
-  }
-}
-
-class ActiveFilteredList<T extends { x: number; y: number }> {
+class OnscreenFilteredList<T extends { x: number; y: number }> {
   items: T[] = [];
-  active: T[] = [];
+  onscreen: T[] = [];
+  margin: 32;
 
   add(item: T) {
     this.items.push(item);
@@ -556,12 +36,14 @@ class ActiveFilteredList<T extends { x: number; y: number }> {
     this.items.splice(this.items.indexOf(item), 1);
   }
 
-  updateActive(cx: number, cy: number, w: number, h: number) {
-    const w2 = w / 2;
-    const h2 = h / 2;
+  update() {
+    const left = renderer.cameraX - this.margin;
+    const right = renderer.cameraX + width + this.margin;
+    const top = renderer.cameraY - this.margin;
+    const bottom = renderer.cameraY + height + this.margin;
 
-    this.active = this.items.filter(
-      ({ x, y }) => x > cx - w2 && x < cx + w2 && y > cy - h2 && y < cy + h2
+    this.onscreen = this.items.filter(
+      ({ x, y }) => x > left && x < right && y > top && y < bottom
     );
   }
 }
@@ -572,7 +54,7 @@ const player = new Player();
 player.x = map.start[0];
 player.y = map.start[1];
 
-const sheep = new ActiveFilteredList<Sheep>();
+const sheep = new OnscreenFilteredList<Sheep>();
 for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
   const x = Math.random() * map.width * 8;
   const y = Math.random() * map.height * 8;
@@ -592,6 +74,14 @@ resize();
 
 const bugs: Bug[] = [];
 
+export const state = {
+  player,
+  sheep,
+  birbs,
+  map,
+  bugs
+};
+
 loop(() => {
   renderer.clear();
 
@@ -606,12 +96,10 @@ loop(() => {
   }
 
   player.update();
-
-  sheep.updateActive(player.x, player.y, width * 1.5, height * 1.5);
-
+  sheep.update();
   bugs.forEach(bug => bug.update());
   birbs.forEach(birb => birb.update());
-  sheep.active.forEach(sheep => sheep.update());
+  sheep.onscreen.forEach(sheep => sheep.update());
   addBugs();
   collideMap();
 
@@ -621,7 +109,7 @@ loop(() => {
 
   bugs.forEach(bug => bug.draw());
   birbs.forEach(birb => birb.draw());
-  sheep.active.forEach(sheep => sheep.draw());
+  sheep.onscreen.forEach(sheep => sheep.draw());
   player.draw();
   drawMap();
   touchControls.draw();
@@ -659,7 +147,7 @@ function collideMap() {
         const y = mapY * 8;
 
         player.resolveAabbCollision(x, y, 8, 8);
-        sheep.active.forEach(sheep => sheep.resolveAabbCollision(x, y, 8, 8));
+        sheep.onscreen.forEach(sheep => sheep.resolveAabbCollision(x, y, 8, 8));
       }
       // else if (map.get(mapX, mapY) === Tile.Tree) {
       //    player.resolveAabbCollision(
@@ -771,7 +259,7 @@ function drawGround(x: number, y: number, w: number, h: number, random: () => nu
       steppedOnStalkTimers[id] = Math.random() * 2 + 1;
     }
 
-    sheep.active.forEach(sheep => {
+    sheep.onscreen.forEach(sheep => {
       const toSheepX = sx - sheep.x;
       const toSheepY = sy - sheep.y;
       const toSheepSq = toSheepX * toSheepX + toSheepY * toSheepY;
@@ -826,7 +314,7 @@ function checkIfGrassTrampled(x: number, y: number) {
     return true;
   }
 
-  return sheep.active.some(sheep => {
+  return sheep.onscreen.some(sheep => {
     const toSheepX = x - sheep.x;
     const toSheepY = y - sheep.y;
     const toSheepSq = toSheepX * toSheepX + toSheepY * toSheepY;
