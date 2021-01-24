@@ -2,14 +2,16 @@ import "./style.css";
 import loop from "./framework";
 import generateMap from "./generate-map";
 import { Tile } from "./map";
-import { palette } from "./sprites";
-import touchControls from "./touch-controls";
+import { palette } from "./framework/sprites";
+import touchControls from "./framework/touch-controls";
 import Player from "./player";
 import Bug from "./bug";
 import Birb from "./birb";
 import Sheep from "./sheep";
+import OnscreenFilteredList from "./onscreen-filtered-list";
 
-// showFps(true);
+// @ts-ignore
+showFps(import.meta.env.DEV);
 
 const mapColors = {
   [Tile.Ground]: palette.timberwolf,
@@ -21,71 +23,52 @@ const mapColors = {
   [Tile.Bridge]: palette.shadow
 };
 
-let wind = 0;
+export const state = setup();
 
-class OnscreenFilteredList<T extends { x: number; y: number }> {
-  items: T[] = [];
-  onscreen: T[] = [];
-  margin: 32;
+function setup() {
+  const map = generateMap(256, 256);
 
-  add(item: T) {
-    this.items.push(item);
+  const player = new Player();
+  player.x = map.start[0];
+  player.y = map.start[1];
+
+  const sheep = new OnscreenFilteredList<Sheep>();
+  for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
+    const x = Math.random() * map.width * 8;
+    const y = Math.random() * map.height * 8;
+    sheep.add(new Sheep(x, y));
   }
 
-  remove(item: T) {
-    this.items.splice(this.items.indexOf(item), 1);
+  const birbs: Birb[] = [];
+  for (let i = 0; i < (map.width * map.height) / (16 * 16); i++) {
+    const x = Math.random() * map.width * 8;
+    const y = Math.random() * map.height * 8;
+    birbs.push(new Birb(x, y));
   }
 
-  update() {
-    const left = renderer.cameraX - this.margin;
-    const right = renderer.cameraX + width + this.margin;
-    const top = renderer.cameraY - this.margin;
-    const bottom = renderer.cameraY + height + this.margin;
+  renderer.clearColor = mapColors[Tile.Ground];
+  pixels = 196;
+  resize();
 
-    this.onscreen = this.items.filter(
-      ({ x, y }) => x > left && x < right && y > top && y < bottom
-    );
-  }
+  const bugs: Bug[] = [];
+
+  // shared game state
+  return {
+    wind: 0,
+    player,
+    sheep,
+    birbs,
+    map,
+    bugs
+  };
 }
 
-const map = generateMap(256, 256);
-
-const player = new Player();
-player.x = map.start[0];
-player.y = map.start[1];
-
-const sheep = new OnscreenFilteredList<Sheep>();
-for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
-  const x = Math.random() * map.width * 8;
-  const y = Math.random() * map.height * 8;
-  sheep.add(new Sheep(x, y));
-}
-
-const birbs: Birb[] = [];
-for (let i = 0; i < (map.width * map.height) / (16 * 16); i++) {
-  const x = Math.random() * map.width * 8;
-  const y = Math.random() * map.height * 8;
-  birbs.push(new Birb(x, y));
-}
-
-renderer.clearColor = mapColors[Tile.Ground];
-pixels = 196;
-resize();
-
-const bugs: Bug[] = [];
-
-export const state = {
-  player,
-  sheep,
-  birbs,
-  map,
-  bugs
-};
+const { player, sheep, birbs, bugs, map } = state;
 
 loop(() => {
   renderer.clear();
 
-  wind = Math.sin(Date.now() / 2000);
+  state.wind = Math.sin(Date.now() / 2000);
 
   for (const id in steppedOnStalkTimers) {
     steppedOnStalkTimers[id] -= deltaTime;
@@ -142,21 +125,15 @@ function collideMap() {
   for (let mapX = left; mapX <= right; mapX++) {
     for (let mapY = top; mapY <= bottom; mapY++) {
       const tile = map.get(mapX, mapY);
-      if (tile === Tile.Wall || tile === Tile.Water) {
+      if (tile === Tile.Wall /*|| tile === Tile.Water*/) {
         const x = mapX * 8;
         const y = mapY * 8;
 
         player.resolveAabbCollision(x, y, 8, 8);
         sheep.onscreen.forEach(sheep => sheep.resolveAabbCollision(x, y, 8, 8));
+      } else if (map.get(mapX, mapY) === Tile.Tree) {
+        player.resolveAabbCollision(mapX * 8 + 2, (mapY + 1) * 8 - 4, 4, 4);
       }
-      // else if (map.get(mapX, mapY) === Tile.Tree) {
-      //    player.resolveAabbCollision(
-      //      mapX * 8,
-      //      (mapY + 1) * 8 - 6,
-      //      8,
-      //      6
-      //    );
-      // }
     }
   }
 }
@@ -189,11 +166,11 @@ function drawTile(mapX: number, mapY: number) {
   if (tile === Tile.Pasture) {
     drawGrass(x, y, 8, 8, 12, random);
   } else if (tile === Tile.Water) {
-    drawWater(x, y, 8, 8, random);
+    // drawWater(x, y, 8, 8, random);
   } else if (tile === Tile.Wall) {
     drawWall(mapX, mapY);
   } else if (tile === Tile.Tree) {
-    // drawTree(x, y);
+    drawTree(x, y, random);
   } else if (tile === Tile.Path) {
     // drawPath(x, y, random);
   } else if (tile === Tile.Ground) {
@@ -230,7 +207,7 @@ function drawGrass(
     const r = random();
     const c =
       r < 0.5 ? palette.forestGreen : r < 0.75 ? palette.pineGreen : palette.outerSpace;
-    const wi = wind * random();
+    const wi = state.wind * random();
 
     renderer.line(sx, sy, sx + wi, sy - sh, c, sy);
 
@@ -270,7 +247,7 @@ function drawGround(x: number, y: number, w: number, h: number, random: () => nu
     });
 
     let sh = steppedOnStalkTimers[id] ? 1 : random() * 3 + 1;
-    const wi = random() * wind;
+    const wi = random() * state.wind;
 
     renderer.line(sx, sy, sx + wi, sy - sh, mapColors[Tile.Pasture], -1001);
   }
@@ -301,8 +278,27 @@ function drawPath(x: number, y: number, random: () => number) {
   renderer.spr("path", x, y, frame, false, -999);
 }
 
-function drawTree(x: number, y: number) {
-  renderer.spr("tree", x + 8 / 2 - 16, y + 8 - 48, 0, false, y + 8 - 0.1);
+function drawTree(x: number, y: number, random: () => number) {
+  const trunkHeight = random() * 32 + 8;
+  const height = random() * 32 + 8;
+  const width = random() * 48 + 8;
+  renderer.rectfill(
+    x + 2,
+    y + 8 - ~~trunkHeight,
+    4,
+    ~~trunkHeight,
+    palette.beaver,
+    y + 8
+  );
+
+  let altColor = false;
+  for (let yy = y + 8 - trunkHeight + 1; yy > y + 8 - trunkHeight - height; yy--) {
+    const xx = (random() - 0.5) * width + x + 4;
+    const r = random() * 4 + 4;
+    const c = altColor ? palette.forestGreen : palette.outerSpace;
+    altColor = !altColor;
+    renderer.circfill(xx, yy, r, c, y + 8);
+  }
 }
 
 function checkIfGrassTrampled(x: number, y: number) {

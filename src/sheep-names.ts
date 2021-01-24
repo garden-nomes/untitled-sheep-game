@@ -1,3 +1,5 @@
+// note: these are from the "sheep name generator" on fantasynamegenerators.com. I do not
+// agree with or endorse all of these names.
 export default [
   "Ace",
   "Babbit",
