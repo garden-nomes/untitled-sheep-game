@@ -21,6 +21,20 @@ body {
   background: rgba(0, 0, 0, 0.5);
 }
 
+#source-link {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 1rem;
+}
+
+#source-link a,
+#source-link a:hover {
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.8rem;
+}
+
 #palette {
   position: absolute;
   top: 0;
