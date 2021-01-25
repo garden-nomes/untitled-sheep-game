@@ -78,7 +78,14 @@ export default class Player {
   }
 
   draw() {
-    renderer.spr("player", this.x - 8, this.y - 16, this.frame, false, this.y);
+    renderer.spr(
+      "player",
+      Math.floor(this.x) - 8,
+      Math.floor(this.y) - 16,
+      this.frame,
+      false,
+      this.y
+    );
     this.footsteps.draw();
   }
 }

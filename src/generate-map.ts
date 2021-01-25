@@ -1,13 +1,9 @@
-import Map, { Tile } from "./map";
+import { distSq } from "./vector";
 import { Delaunay } from "d3-delaunay";
-import { line, mod } from "./utils";
+import Map, { Tile } from "./map";
+import { line } from "./utils";
 
-function* findPath(
-  delaunay: Delaunay<Delaunay.Point>,
-  start: number,
-  end: number,
-  map: Map
-) {
+function routeTo(delaunay: Delaunay<Delaunay.Point>, start: number, end: number) {
   const pointCount = delaunay.points.length / 2;
 
   const unvisited = new Array(pointCount).fill(null).map((_, i) => i);
@@ -34,12 +30,6 @@ function* findPath(
       const [dx, dy] = [x1 - x0, y1 - y0];
       let d = dist[from] + Math.sqrt(dx * dx + dy * dy);
 
-      for (const [x, y] of line([x0, y0], [x1, y1])) {
-        if (map.get(x, y) === Tile.Water) {
-          d += 100;
-        }
-      }
-
       if (d < dist[to]) {
         dist[to] = d;
         prev[to] = from;
@@ -58,144 +48,225 @@ function* findPath(
   }
 
   path.reverse();
-
-  for (let i = 0; i < path.length - 1; i++) {
-    const a = path[i];
-    const b = path[i + 1];
-
-    const p0 = [delaunay.points[a * 2], delaunay.points[a * 2 + 1]];
-    const p1 = [delaunay.points[b * 2], delaunay.points[b * 2 + 1]];
-
-    yield [p0, p1] as [[number, number], [number, number]];
-  }
+  return path;
 }
 
-export default function generateMap(width: number, height: number) {
-  const map = new Map(width, height);
+class MapBuilder {
+  map: Map;
 
-  for (let i = 0; i < 50; i++) {
-    const x = Math.floor(Math.random() * width);
-    const y = Math.floor(Math.random() * height);
-    map.set(x, y, Tile.Tree);
+  constructor(w: number, h: number) {
+    this.map = new Map(w, h);
   }
 
-  for (let i = 0; i < 4; i++) {
-    const speed = 5;
-    const wander = 0.01;
-    let x = Math.random() * width;
-    let y = Math.random() * height;
-    let vx = 0;
-    let vy = 0;
+  addWall(x0: number, y0: number, x1: number, y1: number, gapChance?: number) {
+    [x0, y0, x1, y1] = [x0, y0, x1, y1].map(Math.round);
 
-    for (let j = 0; j < 6000; j++) {
-      const x0 = Math.round(x);
-      const y0 = Math.round(y);
-      const x1 = Math.round(x + vx);
-      const y1 = Math.round(y + vy);
-      if (x0 < 0 || x0 >= width || y0 < 0 || y0 >= height) break;
-
-      map.setLine([x0, y0], [x1, y1], Tile.Water);
-      map.setLine([x0 + 1, y0], [x1 + 1, y1], Tile.Water);
-      map.setLine([x0 + 1, y0 + 1], [x1 + 1, y1 + 1], Tile.Water);
-      map.setLine([x0, y0 + 1], [x1, y1 + 1], Tile.Water);
-
-      x += vx;
-      y += vy;
-
-      vx += (Math.random() - 0.5) * speed * wander;
-      vy += (Math.random() - 0.5) * speed * wander;
-      vx *= 1 - wander;
-      vy *= 1 - wander;
+    for (const [x, y] of line([x0, y0], [x1, y1])) {
+      if (gapChance && Math.random() < gapChance) continue;
+      this.map.set(x, y, Tile.Wall);
     }
   }
 
-  const foci: [number, number][] = [];
-  for (let i = 0; i < 100; i++) {
-    const x = Math.floor(Math.random() * width);
-    const y = Math.floor(Math.random() * height);
+  addStream(x0: number, y0: number, x1: number, y1: number, brushSize = 2) {
+    [x0, y0, x1, y1] = [x0, y0, x1, y1].map(Math.round);
+    const bs2 = ~~(brushSize / 2);
 
-    if (map.get(x, y) !== Tile.Water) {
-      foci.push([x, y]);
-    }
-  }
-
-  map.start = foci[0];
-
-  const delaunay = Delaunay.from(foci);
-  const voronoi = delaunay.voronoi([0, 0, width, height]);
-
-  for (const polygon of voronoi.cellPolygons()) {
-    let i = Math.floor(Math.random() * polygon.length);
-    const j = Math.floor(Math.random() * polygon.length);
-
-    for (; i < j; i++) {
-      const p0 = polygon[i].map(Math.floor);
-      const p1 = polygon[i + 1].map(Math.floor);
-
-      if (Math.random() < 0.5) {
-        for (const [x, y] of line(p0, p1)) {
-          if (map.get(x, y) !== Tile.Water && Math.random() < 0.8) {
-            map.set(x, y, Tile.Wall);
-          }
+    for (const [x, y] of line([x0, y0], [x1, y1])) {
+      for (let bx = 0; bx < brushSize; bx++) {
+        for (let by = 0; by < brushSize; by++) {
+          this.map.set(x + bx - bs2, y + by - bs2, Tile.Water);
         }
       }
     }
   }
 
-  for (let i = 0; i < 10; i++) {
-    const start = Math.floor(Math.random() * foci.length);
-    const end = Math.floor(Math.random() * foci.length);
-    if (start === end) continue;
+  addCrossing(x: number, y: number, brushSize = 2) {
+    [x, y] = [x, y].map(Math.round);
+    const bs2 = ~~(brushSize / 2);
 
-    for (const [p0, p1] of findPath(delaunay, start, end, map)) {
-      for (const [x, y] of line(p0, p1)) {
-        if (map.get(x, y) !== Tile.Water) {
-          map.set(x, y, Tile.Path);
-        } else {
-          map.set(x, y, Tile.Bridge);
+    for (let bx = -1; bx < brushSize + 1; bx++) {
+      for (let by = -1; by < brushSize + 1; by++) {
+        if (this.map.get(x + bx - bs2, y + by - bs2) === Tile.Water) {
+          this.map.set(x + bx - bs2, y + by - bs2, Tile.Crossing);
         }
       }
     }
   }
 
-  for (const [x, y] of foci.slice(0, 20)) {
-    map.set(x, y, Tile.Pasture);
-    map.start = [x * map.tileSize, y * map.tileSize];
+  plantGrass(x: number, y: number) {
+    [x, y] = [x, y].map(Math.round);
+    this.map.set(x, y, Tile.Grass);
   }
 
-  for (let i = 0; i < 10; i++) {
-    const newPastures = [];
+  iterateGrass() {
+    const addedGrasses = [];
 
     for (let x = 0; x < width; x++) {
       for (let y = 0; y < height; y++) {
-        if (
-          map.get(x, y) !== Tile.Wall &&
-          map.get(x, y) !== Tile.Tree &&
-          map.get(x, y) !== Tile.Water
-        ) {
+        const t = this.map.get(x, y);
+        if (t === Tile.Ground) {
           const pastureNeighbors =
-            (x > 0 && map.get(x - 1, y) === Tile.Pasture ? 1 : 0) +
-            (x < width - 1 && map.get(x + 1, y) === Tile.Pasture ? 1 : 0) +
-            (y > 0 && map.get(x, y - 1) === Tile.Pasture ? 1 : 0) +
-            (y < height - 1 && map.get(x, y + 1) === Tile.Pasture ? 1 : 0) +
-            (x > 0 && y > 0 && map.get(x - 1, y - 1) === Tile.Pasture ? 1 : 0) +
-            (x < width - 1 && y > 0 && map.get(x + 1, y - 1) === Tile.Pasture ? 1 : 0) +
-            (x < width - 1 && y < height - 1 && map.get(x + 1, y + 1) === Tile.Pasture
+            (x > 0 && this.map.get(x - 1, y) === Tile.Grass ? 1 : 0) +
+            (x < width - 1 && this.map.get(x + 1, y) === Tile.Grass ? 1 : 0) +
+            (y > 0 && this.map.get(x, y - 1) === Tile.Grass ? 1 : 0) +
+            (y < height - 1 && this.map.get(x, y + 1) === Tile.Grass ? 1 : 0) +
+            (x > 0 && y > 0 && this.map.get(x - 1, y - 1) === Tile.Grass ? 1 : 0) +
+            (x < width - 1 && y > 0 && this.map.get(x + 1, y - 1) === Tile.Grass
               ? 1
               : 0) +
-            (x > 0 && y < height - 1 && map.get(x - 1, y + 1) === Tile.Pasture ? 1 : 0);
+            (x < width - 1 && y < height - 1 && this.map.get(x + 1, y + 1) === Tile.Grass
+              ? 1
+              : 0) +
+            (x > 0 && y < height - 1 && this.map.get(x - 1, y + 1) === Tile.Grass
+              ? 1
+              : 0);
 
           if (Math.random() < pastureNeighbors * 0.5) {
-            newPastures.push([x, y]);
+            addedGrasses.push([x, y]);
           }
         }
       }
     }
 
-    for (const [x, y] of newPastures) {
-      map.set(x, y, Tile.Pasture);
+    for (const [x, y] of addedGrasses) {
+      this.map.set(x, y, Tile.Grass);
+    }
+  }
+}
+
+export default function generateMap(w: number, h: number) {
+  const mapBuilder = new MapBuilder(w, h);
+
+  const cellSize = 4;
+
+  pixels = 256;
+  resize();
+  renderer.clearColor = palette.timberwolf;
+
+  const points: [number, number][] = [];
+  for (let i = 0; i < 1000; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+
+    if (!points.some(p => distSq(p, [x, y]) < cellSize * cellSize)) {
+      points.push([x, y]);
     }
   }
 
-  return map;
+  const triangulation = Delaunay.from(points);
+
+  const interior: number[] = [];
+
+  const sorted = points
+    .slice()
+    .sort((p0, p1) => distSq(p0, [w / 2, h / 2]) - distSq(p1, [w / 2, h / 2]));
+
+  for (let i = 0; i < points.length / 2; i++) {
+    interior.push(points.indexOf(sorted[i]));
+  }
+
+  const interiorTriangulation = Delaunay.from(interior.map(i => points[i]));
+
+  const border = interiorTriangulation.hullPolygon();
+  for (let i = 0; i < border.length; i++) {
+    const [x0, y0] = border[i];
+    const [x1, y1] = border[(i + 1) % border.length];
+
+    mapBuilder.addWall(x0, y0, x1, y1);
+  }
+
+  const usedPoints: number[] = Array.from(
+    interiorTriangulation.hull.map(i => interior[i])
+  );
+
+  let waterPath = [];
+
+  if (Math.random() > 0.25) {
+    const hl = triangulation.hull.length;
+    const hi0 = ~~(Math.random() * hl);
+    const hi1 = (hi0 + ~~(hl / 2 + (Math.random() - 0.5) * 0.25 * hl)) % hl;
+    const waterStart = triangulation.hull[hi0];
+    const waterEnd = triangulation.hull[hi1];
+    waterPath = routeTo(triangulation, waterStart, waterEnd);
+  }
+
+  const { halfedges, triangles } = interiorTriangulation;
+  const wallDensity = Math.random() * 0.1 + 0.1;
+  for (let i = 0; i < halfedges.length; i++) {
+    if (Math.random() > wallDensity) continue;
+
+    const j = halfedges[i];
+    if (j < i) continue;
+
+    const p0 = interior[triangles[i]];
+    const p1 = interior[triangles[j]];
+
+    if (waterPath.includes(p0) && waterPath.includes(p1)) continue;
+
+    usedPoints.push(p0);
+    usedPoints.push(p1);
+
+    const [x0, y0] = points[p0];
+    const [x1, y1] = points[p1];
+
+    mapBuilder.addWall(x0, y0, x1, y1, Math.random());
+  }
+
+  for (let i = 0; i < waterPath.length - 1; i++) {
+    const [x0, y0] = points[waterPath[i]];
+    const [x1, y1] = points[waterPath[i + 1]];
+    mapBuilder.addStream(x0, y0, x1, y1);
+  }
+
+  const crossings = [];
+  for (let i = 0; i < waterPath.length - 1; i++) {
+    if (interior.includes(waterPath[i]) && !usedPoints.includes(waterPath[i])) {
+      crossings.push(waterPath[i]);
+      usedPoints.push(waterPath[i]);
+    }
+  }
+
+  for (let i = 0; i < crossings.length; i++) {
+    const [x, y] = points[crossings[i]];
+    mapBuilder.addCrossing(x, y);
+    usedPoints.push(crossings[i]);
+    crossings.splice(i, 1);
+  }
+
+  const start = interior.find(i => !usedPoints.includes(i));
+  mapBuilder.map.start = points[start].map(Math.round) as [number, number];
+  usedPoints.push(start);
+
+  const grassDensity = Math.random() * 0.5 + 0.25;
+  for (let i = 0; i < interior.length; i++) {
+    const j = interior[i];
+
+    if (!usedPoints.includes(j) && Math.random() < grassDensity) {
+      usedPoints.push(j);
+      const [x, y] = points[j];
+      mapBuilder.plantGrass(x, y);
+    }
+  }
+
+  for (let i = 0; i < 6; i++) {
+    mapBuilder.iterateGrass();
+  }
+
+  return mapBuilder.map;
+}
+
+export function previewMap(map: Map) {
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      if (map.get(x, y) === Tile.Wall) {
+        renderer.set(x, y, palette.chestnut);
+      } else if (map.get(x, y) === Tile.Grass) {
+        renderer.set(x, y, palette.forestGreen);
+      } else if (map.get(x, y) === Tile.Water) {
+        renderer.set(x, y, palette.midnightBlue);
+      } else if (map.get(x, y) === Tile.Crossing) {
+        renderer.set(x, y, palette.aquamarine);
+      }
+    }
+  }
 }

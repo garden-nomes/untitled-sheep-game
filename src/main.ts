@@ -15,20 +15,24 @@ const mapColors = {
   [Tile.Ground]: palette.timberwolf,
   [Tile.Path]: palette.gray,
   [Tile.Wall]: palette.black,
-  [Tile.Pasture]: palette.asparagus,
+  [Tile.Grass]: palette.asparagus,
   [Tile.Tree]: palette.chestnut,
   [Tile.Water]: palette.wildBlueYonder,
-  [Tile.Bridge]: palette.shadow
+  [Tile.Crossing]: palette.aquamarine
 };
 
 export const state = setup();
 
 function setup() {
-  const map = generateMap(256, 256);
+  renderer.clearColor = mapColors[Tile.Ground];
+  pixels = 256;
+  resize();
+
+  const map = generateMap(128, 128);
 
   const player = new Player();
-  player.x = map.start[0];
-  player.y = map.start[1];
+  player.x = map.start[0] * 8;
+  player.y = map.start[1] * 8;
 
   const sheep = new OnscreenFilteredList<Sheep>();
   for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
@@ -43,10 +47,6 @@ function setup() {
     const y = Math.random() * map.height * 8;
     birbs.push(new Birb(x, y));
   }
-
-  renderer.clearColor = mapColors[Tile.Ground];
-  pixels = 196;
-  resize();
 
   const bugs: Bug[] = [];
 
@@ -86,7 +86,7 @@ loop(() => {
 
   const cameraX = Math.min(Math.max(player.x, width / 2), map.width * 8 - width / 2);
   const cameraY = Math.min(Math.max(player.y, height / 2), map.height * 8 - height / 2);
-  renderer.camera(cameraX, cameraY);
+  renderer.camera(Math.round(cameraX), Math.round(cameraY));
 
   bugs.forEach(bug => bug.draw());
   birbs.forEach(birb => birb.draw());
@@ -99,7 +99,7 @@ loop(() => {
 function addBugs() {
   if (
     (player.vx !== 0 || player.vy !== 0) &&
-    map.getWorld(player.x, player.y) === Tile.Pasture &&
+    map.getWorld(player.x, player.y) === Tile.Grass &&
     Math.random() < deltaTime * 0.25
   ) {
     const count = Math.random() * 5 + 1;
@@ -123,7 +123,7 @@ function collideMap() {
   for (let mapX = left; mapX <= right; mapX++) {
     for (let mapY = top; mapY <= bottom; mapY++) {
       const tile = map.get(mapX, mapY);
-      if (tile === Tile.Wall /*|| tile === Tile.Water*/) {
+      if (tile === Tile.Wall || tile === Tile.Water) {
         const x = mapX * 8;
         const y = mapY * 8;
 
@@ -161,10 +161,10 @@ function drawTile(mapX: number, mapY: number) {
   const x = mapX * 8;
   const y = mapY * 8;
 
-  if (tile === Tile.Pasture) {
+  if (tile === Tile.Grass) {
     drawGrass(x, y, 8, 8, 12, random);
-  } else if (tile === Tile.Water) {
-    // drawWater(x, y, 8, 8, random);
+    //   } else if (tile === Tile.Water) {
+    //     drawWater(x, y, 8, 8, random);
   } else if (tile === Tile.Wall) {
     drawWall(mapX, mapY);
   } else if (tile === Tile.Tree) {
@@ -173,8 +173,6 @@ function drawTile(mapX: number, mapY: number) {
     // drawPath(x, y, random);
   } else if (tile === Tile.Ground) {
     drawGround(x, y, 8, 8, random);
-  } else if (tile === Tile.Bridge) {
-    drawPath(x, y, random);
   } else {
     renderer.rectfill(x, y, 8, 8, color, Number.NEGATIVE_INFINITY);
   }
@@ -188,7 +186,7 @@ function drawGrass(
   stalkHeight: number,
   random: () => number
 ) {
-  const density = 0.25;
+  const density = 0.1;
   const stalks = w * h * density;
 
   for (let i = 0; i < stalks; i++) {
@@ -247,7 +245,7 @@ function drawGround(x: number, y: number, w: number, h: number, random: () => nu
     let sh = steppedOnStalkTimers[id] ? 1 : random() * 3 + 1;
     const wi = random() * state.wind;
 
-    renderer.line(sx, sy, sx + wi, sy - sh, mapColors[Tile.Pasture], -1001);
+    renderer.line(sx, sy, sx + wi, sy - sh, mapColors[Tile.Grass], -1001);
   }
 }
 

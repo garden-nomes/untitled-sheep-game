@@ -3,12 +3,12 @@ import { line, mod } from "./utils";
 
 export enum Tile {
   Ground = 1,
-  Pasture,
+  Grass,
   Path,
   Wall,
   Tree,
   Water,
-  Bridge
+  Crossing
 }
 
 export default class Map {
