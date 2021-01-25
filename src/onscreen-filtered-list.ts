@@ -1,7 +1,7 @@
 export default class OnscreenFilteredList<T extends { x: number; y: number }> {
   items: T[] = [];
   onscreen: T[] = [];
-  margin: 32;
+  margin = 32;
 
   add(item: T) {
     this.items.push(item);
