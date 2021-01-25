@@ -77,8 +77,8 @@ export default class Renderer {
   }
 
   camera(x: number, y: number) {
-    this.cameraX = ~~(x - width / 2);
-    this.cameraY = ~~(y - height / 2);
+    this.cameraX = ~~x - ~~(width / 2);
+    this.cameraY = ~~y - ~~(height / 2);
   }
 
   drawImage(

@@ -82,7 +82,7 @@ loop(() => {
 
   const cameraX = Math.min(Math.max(player.x, width / 2), map.width * 8 - width / 2);
   const cameraY = Math.min(Math.max(player.y, height / 2), map.height * 8 - height / 2);
-  renderer.camera(Math.round(cameraX), Math.round(cameraY));
+  renderer.camera(cameraX, cameraY);
 
   sheep.update();
   sheep.onscreen.forEach(sheep => sheep.update());
