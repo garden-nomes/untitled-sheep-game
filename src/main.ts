@@ -28,17 +28,15 @@ function setup() {
   pixels = 256;
   resize();
 
-  const map = generateMap(128, 128);
+  const map = generateMap(512, 512);
 
   const player = new Player();
   player.x = map.start[0] * 8;
   player.y = map.start[1] * 8;
 
   const sheep = new OnscreenFilteredList<Sheep>();
-  for (let i = 0; i < (map.width * map.height) / (32 * 32); i++) {
-    const x = Math.random() * map.width * 8;
-    const y = Math.random() * map.height * 8;
-    sheep.add(new Sheep(x, y));
+  for (const [mapX, mapY] of map.sheepStart) {
+    sheep.add(new Sheep(mapX * 8, mapY * 8));
   }
 
   const birbs: Birb[] = [];
@@ -77,16 +75,17 @@ loop(() => {
   }
 
   player.update();
-  sheep.update();
   bugs.forEach(bug => bug.update());
   birbs.forEach(birb => birb.update());
-  sheep.onscreen.forEach(sheep => sheep.update());
   addBugs();
   collideMap();
 
   const cameraX = Math.min(Math.max(player.x, width / 2), map.width * 8 - width / 2);
   const cameraY = Math.min(Math.max(player.y, height / 2), map.height * 8 - height / 2);
   renderer.camera(Math.round(cameraX), Math.round(cameraY));
+
+  sheep.update();
+  sheep.onscreen.forEach(sheep => sheep.update());
 
   bugs.forEach(bug => bug.draw());
   birbs.forEach(birb => birb.draw());

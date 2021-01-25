@@ -242,7 +242,6 @@ export default function generateMap(w: number, h: number) {
     const j = interior[i];
 
     if (!usedPoints.includes(j) && Math.random() < grassDensity) {
-      usedPoints.push(j);
       const [x, y] = points[j];
       mapBuilder.plantGrass(x, y);
     }
@@ -250,6 +249,15 @@ export default function generateMap(w: number, h: number) {
 
   for (let i = 0; i < 6; i++) {
     mapBuilder.iterateGrass();
+  }
+
+  const openPoints = interior.filter(i => !usedPoints.includes(i));
+  const sheepCount = 8;
+
+  while (openPoints.length > 0 && mapBuilder.map.sheepStart.length < sheepCount) {
+    const j = ~~(Math.random() * openPoints.length);
+    mapBuilder.map.sheepStart.push(points[openPoints[j]]);
+    openPoints.splice(j, 0);
   }
 
   return mapBuilder.map;

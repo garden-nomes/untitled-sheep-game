@@ -14,6 +14,7 @@ export enum Tile {
 export default class Map {
   grid: Int8Array;
   start: [number, number];
+  sheepStart: [number, number][] = [];
   tileSize = 8;
   seeds: Float32Array;
 
