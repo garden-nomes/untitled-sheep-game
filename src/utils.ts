@@ -1,4 +1,4 @@
-import { Color } from "./renderer";
+import { Color } from "./framework/renderer";
 
 export function mod(n: number, m: number) {
   return ((n % m) + m) % m;

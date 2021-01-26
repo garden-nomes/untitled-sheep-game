@@ -4,7 +4,6 @@ import { line, mod } from "./utils";
 export enum Tile {
   Ground = 1,
   Grass,
-  Path,
   Wall,
   Tree,
   Water,
@@ -15,6 +14,7 @@ export default class Map {
   grid: Int8Array;
   start: [number, number];
   sheepStart: [number, number][] = [];
+  paddock: [number, number, number, number] = [0, 0, 0, 0];
   tileSize = 8;
   seeds: Float32Array;
 

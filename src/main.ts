@@ -13,7 +13,6 @@ showFps(import.meta.env.DEV);
 
 const mapColors = {
   [Tile.Ground]: palette.timberwolf,
-  [Tile.Path]: palette.gray,
   [Tile.Wall]: palette.black,
   [Tile.Grass]: palette.asparagus,
   [Tile.Tree]: palette.chestnut,
@@ -168,8 +167,6 @@ function drawTile(mapX: number, mapY: number) {
     drawWall(mapX, mapY);
   } else if (tile === Tile.Tree) {
     drawTree(x, y, random);
-  } else if (tile === Tile.Path) {
-    // drawPath(x, y, random);
   } else if (tile === Tile.Ground) {
     drawGround(x, y, 8, 8, random);
   } else {
@@ -266,11 +263,6 @@ function drawWall(mapX: number, mapY: number) {
   const y = mapY * 8;
   const frame = map.get(mapX, mapY + 1) === Tile.Wall ? 1 : 0;
   renderer.spr("wall", x, y, frame, false, y + 8);
-}
-
-function drawPath(x: number, y: number, random: () => number) {
-  const frame = ~~(random() * 3);
-  renderer.spr("path", x, y, frame, false, -999);
 }
 
 function drawTree(x: number, y: number, random: () => number) {
