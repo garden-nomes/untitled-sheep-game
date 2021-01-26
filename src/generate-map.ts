@@ -329,8 +329,6 @@ export function previewMap(map: Map) {
         renderer.set(x, y, palette.midnightBlue);
       } else if (map.get(x, y) === Tile.Crossing) {
         renderer.set(x, y, palette.aquamarine);
-      } else if (map.get(x, y) === Tile.Paddock) {
-        renderer.set(x, y, palette.asparagus);
       }
     }
   }

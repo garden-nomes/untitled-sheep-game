@@ -7,6 +7,7 @@ import Bug from "./bug";
 import Birb from "./birb";
 import Sheep from "./sheep";
 import OnscreenFilteredList from "./onscreen-filtered-list";
+import { TextAlign } from "./framework/renderer";
 
 // @ts-ignore
 showFps(import.meta.env.DEV);
@@ -91,6 +92,7 @@ loop(() => {
   sheep.onscreen.forEach(sheep => sheep.draw());
   player.draw();
   drawMap();
+  showRemainingSheep();
   touchControls.draw();
 });
 
@@ -105,6 +107,19 @@ function addBugs() {
       bugs.push(new Bug(player.x, player.y));
     }
   }
+}
+
+function showRemainingSheep() {
+  // paddoock rect, multiplied by tilesize
+  const [px, py, pw, ph] = map.paddock.map(x => x * 8);
+
+  const numberOfSheep = sheep.items.length;
+  const sheepInPaddock = sheep.items.filter(
+    ({ x, y }) => x >= px && x <= px + pw && y >= py && y <= py + ph
+  ).length;
+
+  const text = `${numberOfSheep - sheepInPaddock} lost sheep remaining`;
+  renderer.text(text, px + pw / 2, py + ph + 10, TextAlign.Center, palette.white);
 }
 
 function collideMap() {
