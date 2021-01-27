@@ -1,4 +1,4 @@
-import { normalize } from "../vector";
+import { add, distSq, mul, normalize, sub } from "../vector";
 
 export default class TouchControls {
   touchId: number | null = null;
@@ -38,6 +38,14 @@ export default class TouchControls {
         const touch = event.changedTouches[0];
         const pos = renderer.clientToGameCoordinates(touch.clientX, touch.clientY);
         this.touchPos = pos;
+
+        const d = 48;
+        if (distSq(this.touchPos, this.startPos) > d * d) {
+          this.startPos = add(
+            this.touchPos,
+            mul(normalize(sub(this.startPos, this.touchPos)), d)
+          ) as any;
+        }
       }
     }
   }
@@ -45,11 +53,20 @@ export default class TouchControls {
   draw() {
     if (this.touchId === null) return;
 
+    renderer.line(
+      renderer.cameraX + this.startPos[0],
+      renderer.cameraY + this.startPos[1],
+      renderer.cameraX + this.touchPos[0],
+      renderer.cameraY + this.touchPos[1],
+      palette.gray,
+      Number.POSITIVE_INFINITY
+    );
+
     renderer.circfill(
       renderer.cameraX + this.startPos[0],
       renderer.cameraY + this.startPos[1],
       8,
-      palette.aquamarine,
+      palette.gray,
       Number.POSITIVE_INFINITY
     );
 
@@ -58,15 +75,6 @@ export default class TouchControls {
       renderer.cameraY + this.touchPos[1],
       8,
       palette.chestnut,
-      Number.POSITIVE_INFINITY
-    );
-
-    renderer.line(
-      renderer.cameraX + this.startPos[0],
-      renderer.cameraY + this.startPos[1],
-      renderer.cameraX + this.touchPos[0],
-      renderer.cameraY + this.touchPos[1],
-      palette.gray,
       Number.POSITIVE_INFINITY
     );
   }
