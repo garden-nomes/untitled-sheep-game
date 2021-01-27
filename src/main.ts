@@ -8,6 +8,7 @@ import Birb from "./birb";
 import Sheep from "./sheep";
 import OnscreenFilteredList from "./onscreen-filtered-list";
 import { TextAlign } from "./framework/renderer";
+import GrassState from "./grass-state";
 
 // @ts-ignore
 showFps(import.meta.env.DEV);
@@ -48,6 +49,8 @@ function setup() {
 
   const bugs: Bug[] = [];
 
+  const grassState = new GrassState();
+
   // shared game state
   return {
     wind: 0,
@@ -55,25 +58,20 @@ function setup() {
     sheep,
     birbs,
     map,
-    bugs
+    bugs,
+    grassState
   };
 }
 
-const { player, sheep, birbs, bugs, map } = state;
+const { player, sheep, birbs, bugs, map, grassState } = state;
 
 loop(() => {
   renderer.clear();
 
+  sheep.update();
+  sheep.onscreen.forEach(sheep => sheep.update());
   state.wind = Math.sin(Date.now() / 2000);
-
-  for (const id in steppedOnStalkTimers) {
-    steppedOnStalkTimers[id] -= deltaTime;
-
-    if (steppedOnStalkTimers[id] <= 0) {
-      delete steppedOnStalkTimers[id];
-    }
-  }
-
+  grassState.update();
   player.update();
   bugs.forEach(bug => bug.update());
   birbs.forEach(birb => birb.update());
@@ -83,9 +81,6 @@ loop(() => {
   const cameraX = Math.min(Math.max(player.x, width / 2), map.width * 8 - width / 2);
   const cameraY = Math.min(Math.max(player.y, height / 2), map.height * 8 - height / 2);
   renderer.camera(cameraX, cameraY);
-
-  sheep.update();
-  sheep.onscreen.forEach(sheep => sheep.update());
 
   bugs.forEach(bug => bug.draw());
   birbs.forEach(birb => birb.draw());
@@ -207,10 +202,10 @@ function drawGrass(
     const sy = y + random() * h;
 
     if (checkIfGrassTrampled(sx, sy)) {
-      steppedOnStalkTimers[id] = Math.random() * 4 + 2;
+      grassState.trample(id);
     }
 
-    const sh = steppedOnStalkTimers[id] ? 1 : random() * stalkHeight;
+    const sh = grassState.isTrampled(id) ? 1 : random() * stalkHeight;
     const r = random();
     const c =
       r < 0.5 ? palette.forestGreen : r < 0.75 ? palette.pineGreen : palette.outerSpace;
@@ -224,8 +219,6 @@ function drawGrass(
   }
 }
 
-const steppedOnStalkTimers: Record<number, number> = {};
-
 function drawGround(x: number, y: number, w: number, h: number, random: () => number) {
   const stalks = Math.floor(w * h * random() * 0.018);
 
@@ -235,25 +228,11 @@ function drawGround(x: number, y: number, w: number, h: number, random: () => nu
     const sx = x + random() * w;
     const sy = y + random() * h;
 
-    const toPlayerX = sx - player.x;
-    const toPlayerY = sy - player.y;
-    const toPlayer = toPlayerX * toPlayerX + toPlayerY * toPlayerY;
-
     if (checkIfGrassTrampled(sx, sy)) {
-      steppedOnStalkTimers[id] = Math.random() * 2 + 1;
+      grassState.trample(id);
     }
 
-    sheep.onscreen.forEach(sheep => {
-      const toSheepX = sx - sheep.x;
-      const toSheepY = sy - sheep.y;
-      const toSheepSq = toSheepX * toSheepX + toSheepY * toSheepY;
-
-      if (toSheepSq <= 16) {
-        steppedOnStalkTimers[id] = Math.random() * 4 + 2;
-      }
-    });
-
-    let sh = steppedOnStalkTimers[id] ? 1 : random() * 3 + 1;
+    let sh = grassState.isTrampled(id) ? 1 : random() * 3 + 1;
     const wi = random() * state.wind;
 
     renderer.line(sx, sy, sx + wi, sy - sh, mapColors[Tile.Grass], -1001);
