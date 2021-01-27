@@ -57,13 +57,17 @@ export default class Map {
     return this.grid[index];
   }
 
-  getRandom(gridX: number, gridY: number) {
+  getSeed(gridX: number, gridY: number) {
     if (gridX < 0 || gridX >= this.width || gridY < 0 || gridY >= this.height) {
       throw new Error(`Grid coordinates out of bounds: (${gridX}, ${gridY})`);
     }
 
     const index = gridY * this.width + gridX;
-    return randomLcg(this.seeds[index]);
+    return this.seeds[index];
+  }
+
+  getRandom(gridX: number, gridY: number) {
+    return randomLcg(this.getSeed(gridX, gridY));
   }
 
   getWorld(x: number, y: number) {

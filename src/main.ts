@@ -51,7 +51,7 @@ function setup() {
 
   const grassState = new GrassState();
 
-  // shared game state
+  // global game state
   return {
     wind: 0,
     player,
@@ -205,7 +205,9 @@ function drawGrass(
       grassState.trample(id);
     }
 
-    const sh = grassState.isTrampled(id) ? 1 : random() * stalkHeight;
+    let sh = grassState.isTrampled(id) ? 1 : random() * stalkHeight;
+    sh = Math.max(1, sh * (1 - grassState.munchedAmount(x, y)));
+
     const r = random();
     const c =
       r < 0.5 ? palette.forestGreen : r < 0.75 ? palette.pineGreen : palette.outerSpace;
